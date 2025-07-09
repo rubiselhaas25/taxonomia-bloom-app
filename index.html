@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplicación Interactiva: Taxonomía de Bloom</title>
+    <!-- Chosen Palette: Calm Harmony (Light Blue-Gray, White, Slate, Indigo Accent) -->
+    <!-- Application Structure Plan: A single-page application with a top navigation bar for switching between four main views: 'Introducción' (overview), 'Explorar Niveles' (an interactive diagram showing the hierarchy), 'Glosario Detallado' (an accordion with detailed info for each level), and 'Poner a Prueba' (the self-assessment quiz). This structure organizes the different ways of engaging with the content (reading, exploring, referencing, testing) into clear, user-selectable tasks, providing a more structured and less overwhelming experience than a single long-scrolling page. -->
+    <!-- Visualization & Content Choices: Report Info: The 6 levels of Bloom's Digital Taxonomy. -> Goal: Organize & Inform. -> Viz/Presentation: An interactive vertical pyramid/stack diagram built with HTML/CSS. -> Interaction: Hovering over a level highlights it and shows its name. -> Justification: A pyramid visually represents the hierarchical nature of the taxonomy (lower to higher-order thinking). HTML/CSS is used to avoid SVG. | Report Info: Level descriptions and keywords. -> Goal: Inform. -> Viz/Presentation: Interactive Accordion (Glosario). -> Interaction: Clicking a level's title expands to show full description and keywords. -> Justification: An accordion is a space-efficient way to present detailed, collapsible information without cluttering the UI. | Report Info: Overall knowledge of the taxonomy. -> Goal: Test understanding. -> Viz/Presentation: Interactive Quiz. -> Interaction: User selects answers and receives immediate, explanatory feedback. -> Justification: A quiz is a direct and engaging way to allow users to self-assess their comprehension. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #f0f4f8;
+            --bg-card: #ffffff;
+            --text-primary: #1f2937;
+            --text-secondary: #4b5563;
+            --accent-primary: #4f46e5;
+            --accent-hover: #4338ca;
+            --border-color: #e5e7eb;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+        }
+        .nav-link {
+            transition: color 0.3s, border-bottom-color 0.3s;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+            font-weight: 600;
+        }
+        .nav-link:not(.active):hover {
+            color: var(--accent-hover);
+            border-bottom-color: var(--accent-hover);
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        
+        /* Interactive Pyramid */
+        .pyramid {
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            width: 100%;
+            max-width: 500px;
+            margin: auto;
+        }
+        .pyramid-level {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 60px;
+            margin-bottom: 4px;
+            border-radius: 0.5rem;
+            color: white;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        .pyramid-level:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        .pyramid-level .icon {
+            margin-right: 8px;
+        }
+
+        /* Accordion Styles */
+        .accordion-item {
+            border-bottom: 1px solid var(--border-color);
+        }
+        .accordion-header {
+            cursor: pointer;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.3s;
+        }
+        .accordion-header:hover {
+            background-color: #f9fafb;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out, padding 0.5s ease-out;
+            padding: 0 1rem;
+            background-color: #f9fafb;
+        }
+        .accordion-item.active .accordion-content {
+            padding: 1.5rem 1rem;
+        }
+        .accordion-item.active .accordion-arrow {
+            transform: rotate(180deg);
+        }
+        .accordion-arrow {
+            transition: transform 0.3s;
+        }
+
+        /* Quiz Styles */
+        .option-button {
+            background-color: #f3f4f6;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            border: 1px solid var(--border-color);
+        }
+        .option-button:hover:not(.disabled) {
+            background-color: #e5e7eb;
+            border-color: #d1d5db;
+        }
+        .option-button.correct {
+            background-color: #d1fae5;
+            color: #065f46;
+            border-color: #34d399;
+            font-weight: 600;
+        }
+        .option-button.incorrect {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border-color: #f87171;
+            font-weight: 600;
+        }
+        .option-button.disabled {
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+        .feedback-box {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .feedback-box.show {
+            display: block;
+        }
+        .feedback-box.correct-feedback {
+            background-color: #e0f2f7;
+            color: #0c4a6e;
+            border: 1px solid #7dd3fc;
+        }
+        .feedback-box.incorrect-feedback {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #f87171;
+        }
+        
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
+        
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-5xl font-bold text-gray-800">Taxonomía de Bloom para la Era Digital</h1>
+            <p class="mt-2 text-lg text-gray-600">Una guía interactiva para el aprendizaje moderno.</p>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="bg-white rounded-lg shadow-md mb-8 sticky top-4 z-20">
+            <ul class="flex flex-wrap justify-center p-4 gap-4 md:gap-8">
+                <li><a href="#introduccion" class="nav-link px-2 py-1" data-target="introduccion">Introducción</a></li>
+                <li><a href="#explorar" class="nav-link px-2 py-1" data-target="explorar">Explorar Niveles</a></li>
+                <li><a href="#glosario" class="nav-link px-2 py-1" data-target="glosario">Glosario Detallado</a></li>
+                <li><a href="#quiz" class="nav-link px-2 py-1" data-target="quiz">Poner a Prueba</a></li>
+            </ul>
+        </nav>
+
+        <main id="app-content">
+            <!-- Introduction Section -->
+            <section id="introduccion" class="content-section bg-white p-6 md:p-8 rounded-lg shadow-lg">
+                <h2 class="text-2xl md:text-3xl font-bold mb-4 text-gray-800">¿Qué es la Taxonomía de Bloom para la Era Digital?</h2>
+                <p class="text-gray-700 leading-relaxed mb-4">La Taxonomía de Bloom para la Era Digital es una adaptación del modelo clásico que ayuda a educadores y estudiantes a comprender y clasificar los procesos cognitivos en el contexto del aprendizaje moderno. Distingue entre habilidades de pensamiento de orden inferior (más básicas) y de orden superior (más complejas), integrando herramientas y actividades digitales.</p>
+                <p class="text-gray-700 leading-relaxed">Esta aplicación interactiva está diseñada para guiarte a través de los seis niveles de la taxonomía. Utiliza el menú de navegación para explorar las diferentes secciones: visualiza la jerarquía de los niveles, profundiza en las definiciones y palabras clave en el glosario, y evalúa tu comprensión con un cuestionario.</p>
+            </section>
+            
+            <!-- Explore Section -->
+            <section id="explorar" class="content-section bg-white p-6 md:p-8 rounded-lg shadow-lg text-center">
+                 <h2 class="text-2xl md:text-3xl font-bold mb-2 text-gray-800">Explora los Niveles de Pensamiento</h2>
+                 <p class="text-gray-600 mb-8 max-w-2xl mx-auto">La taxonomía se estructura como una pirámide, desde las habilidades fundamentales en la base hasta las más complejas en la cima. Pasa el cursor sobre cada nivel para ver su nombre.</p>
+                 <div id="pyramid-container" class="pyramid"></div>
+            </section>
+
+            <!-- Glossary Section -->
+            <section id="glosario" class="content-section bg-white p-6 md:p-8 rounded-lg shadow-lg">
+                <h2 class="text-2xl md:text-3xl font-bold mb-2 text-gray-800">Glosario Detallado de Niveles</h2>
+                <p class="text-gray-600 mb-6">Haz clic en cada nivel para expandir y ver su descripción completa y las palabras clave asociadas.</p>
+                <div id="accordion-container" class="border border-gray-200 rounded-lg"></div>
+            </section>
+            
+            <!-- Quiz Section -->
+            <section id="quiz" class="content-section bg-white p-6 md:p-8 rounded-lg shadow-lg">
+                <div id="quiz-content" class="w-full">
+                    <h2 class="text-2xl md:text-3xl font-bold mb-6 text-gray-800 text-center">Pon a Prueba tu Conocimiento</h2>
+                    <div id="question-card" class="bg-gray-50 rounded-lg p-6">
+                        <p id="question-text" class="text-xl font-semibold text-gray-700 mb-6 min-h-[6rem]"></p>
+                        <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                        <div id="feedback-container" class="feedback-box"></div>
+                    </div>
+                    <div class="flex justify-between items-center mt-6">
+                        <p id="progress-text" class="text-sm text-gray-500"></p>
+                        <button id="next-button" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 transition duration-300 disabled:bg-gray-400">Siguiente</button>
+                    </div>
+                </div>
+                <div id="results-screen" class="hidden text-center py-10">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-4">¡Cuestionario Terminado!</h2>
+                    <i class="fas fa-trophy text-6xl text-yellow-400 mb-4"></i>
+                    <p id="final-score" class="text-2xl text-gray-700 mb-6"></p>
+                    <button id="restart-button" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-indigo-700 transition duration-300">Volver a Empezar</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // --- DATA ---
+        const taxonomyData = [
+            { id: 'recordar', name: 'Recordar', description: 'El nivel más básico, que implica la capacidad de traer a la mente términos, conceptos, datos y hechos, sin necesidad de entenderlos.', keywords: ['Listar', 'Definir', 'Describir', 'Memorizar', 'Reconocer', 'Seleccionar', 'Repetir', 'Buscar', 'Relacionar', 'Citar', 'Localizar', 'Nombrar'], color: '#ef4444', icon: 'fa-solid fa-brain' },
+            { id: 'comprender', name: 'Comprender', description: 'Se busca construir significado a partir de mensajes, ya sean de comunicación oral, escrita o gráfica.', keywords: ['Parafrasear', 'Resumir', 'Clasificar', 'Etiquetar', 'Contrastar', 'Esquematizar', 'Explicar', 'Preguntar', 'Interpretar', 'Ilustrar', 'Ejemplificar'], color: '#f97316', icon: 'fa-solid fa-comments' },
+            { id: 'aplicar', name: 'Aplicar', description: 'Se centra en resolver problemas mediante la aplicación del conocimiento en contextos nuevos.', keywords: ['Calcular', 'Simular', 'Desarrollar', 'Demostrar', 'Organizar', 'Planear', 'Emplear', 'Resolver', 'Editar', 'Practicar', 'Conectar', 'Jugar'], color: '#eab308', icon: 'fa-solid fa-gears' },
+            { id: 'analizar', name: 'Analizar', description: 'Implica descomponer la información en partes y determinar cómo estas se relacionan entre sí.', keywords: ['Examinar', 'Contrastar', 'Inferir', 'Deducir', 'Categorizar', 'Reportar', 'Simplificar', 'Priorizar', 'Agrupar', 'Ordenar', 'Destacar', 'Graficar'], color: '#22c55e', icon: 'fa-solid fa-magnifying-glass-chart' },
+            { id: 'evaluar', name: 'Evaluar', description: 'Consiste en justificar, presentar y defender opiniones realizando juicios sobre la información.', keywords: ['Medir', 'Juzgar', 'Decidir', 'Defender', 'Justificar', 'Criticar', 'Valorar', 'Premiar', 'Debatir', 'Persuadir', 'Recomendar', 'Argumentar'], color: '#3b82f6', icon: 'fa-solid fa-scale-balanced' },
+            { id: 'crear', name: 'Crear', description: 'El nivel más alto y complejo, donde se utiliza el conocimiento y habilidades adquiridas para crear algo nuevo.', keywords: ['Diseñar', 'Construir', 'Producir', 'Inventar', 'Editar videos', 'Crear interactivos', 'animaciones', 'materiales informativos', 'podcast'], color: '#8b5cf6', icon: 'fa-solid fa-lightbulb' }
+        ];
+
+        const quizQuestions = [
+            { question: "¿Cuál es el nivel más básico de la taxonomía, que implica traer a la mente información sin entenderla?", options: ["Comprender", "Aplicar", "Recordar", "Analizar"], correctAnswer: "Recordar", feedback: "Recordar es el nivel fundamental, centrado en la recuperación de información como términos y hechos." },
+            { question: "La acción de 'Parafrasear' un texto corresponde al nivel de...", options: ["Recordar", "Comprender", "Aplicar", "Evaluar"], correctAnswer: "Comprender", feedback: "'Parafrasear' demuestra que se ha construido un significado propio, lo cual es la esencia de Comprender." },
+            { question: "Si un estudiante 'Edita un video' para un proyecto, ¿qué nivel de la taxonomía está aplicando?", options: ["Analizar", "Aplicar", "Crear", "Evaluar"], correctAnswer: "Crear", feedback: "'Editar videos' es un acto de producción de contenido nuevo y original, la cúspide de la taxonomía: Crear." },
+            { question: "La habilidad de 'justificar una decisión' pertenece al nivel de...", options: ["Analizar", "Evaluar", "Crear", "Aplicar"], correctAnswer: "Evaluar", feedback: "Evaluar implica hacer juicios y defender opiniones basándose en criterios y argumentos sólidos." },
+            { question: "Descomponer la información en partes para ver cómo se relacionan es la definición de...", options: ["Analizar", "Comprender", "Aplicar", "Recordar"], correctAnswer: "Analizar", feedback: "Analizar se centra en examinar la estructura de la información y las relaciones entre sus componentes." }
+        ];
+
+        // --- NAVIGATION ---
+        const navLinks = document.querySelectorAll('.nav-link');
+        const contentSections = document.querySelectorAll('.content-section');
+        const appContent = document.getElementById('app-content');
+
+        function setActiveSection(targetId) {
+            navLinks.forEach(link => {
+                link.classList.toggle('active', link.dataset.target === targetId);
+            });
+            contentSections.forEach(section => {
+                section.classList.toggle('active', section.id === targetId);
+            });
+            window.location.hash = targetId;
+        }
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = e.currentTarget.dataset.target;
+                setActiveSection(targetId);
+            });
+        });
+
+        // --- PYRAMID INITIALIZATION ---
+        const pyramidContainer = document.getElementById('pyramid-container');
+        if (pyramidContainer) {
+            taxonomyData.forEach((level, index) => {
+                const levelDiv = document.createElement('div');
+                const baseWidth = 60;
+                const widthIncrement = 40 / taxonomyData.length;
+                levelDiv.className = 'pyramid-level';
+                levelDiv.style.width = `${baseWidth + index * widthIncrement}%`;
+                levelDiv.style.backgroundColor = level.color;
+                levelDiv.innerHTML = `<i class="${level.icon} icon"></i> ${level.name}`;
+                pyramidContainer.appendChild(levelDiv);
+            });
+        }
+        
+        // --- ACCORDION INITIALIZATION ---
+        const accordionContainer = document.getElementById('accordion-container');
+        if(accordionContainer) {
+            accordionContainer.innerHTML = taxonomyData.map((level, index) => `
+                <div class="accordion-item" data-level="${level.id}">
+                    <div class="accordion-header">
+                        <div class="flex items-center">
+                            <i class="${level.icon} text-xl mr-4" style="color: ${level.color};"></i>
+                            <h3 class="text-xl font-semibold text-gray-700">${level.name}</h3>
+                        </div>
+                        <i class="fas fa-chevron-down accordion-arrow text-gray-500"></i>
+                    </div>
+                    <div class="accordion-content">
+                        <p class="text-gray-600 mb-4">${level.description}</p>
+                        <h4 class="font-semibold text-gray-700 mb-2">Palabras Clave:</h4>
+                        <div class="flex flex-wrap gap-2">
+                            ${level.keywords.map(kw => `<span class="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm">${kw}</span>`).join('')}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            accordionContainer.addEventListener('click', (e) => {
+                const header = e.target.closest('.accordion-header');
+                if (header) {
+                    const item = header.parentElement;
+                    const content = item.querySelector('.accordion-content');
+                    
+                    // Close other items
+                    accordionContainer.querySelectorAll('.accordion-item.active').forEach(otherItem => {
+                        if (otherItem !== item) {
+                            otherItem.classList.remove('active');
+                            otherItem.querySelector('.accordion-content').style.maxHeight = '0px';
+                        }
+                    });
+
+                    // Toggle current item
+                    item.classList.toggle('active');
+                    if (item.classList.contains('active')) {
+                        content.style.maxHeight = content.scrollHeight + 'px';
+                    } else {
+                        content.style.maxHeight = '0px';
+                    }
+                }
+            });
+        }
+
+        // --- QUIZ LOGIC ---
+        const quizContent = document.getElementById('quiz-content');
+        const resultsScreen = document.getElementById('results-screen');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const feedbackContainer = document.getElementById('feedback-container');
+        const nextButton = document.getElementById('next-button');
+        const finalScoreText = document.getElementById('final-score');
+        const restartButton = document.getElementById('restart-button');
+        const progressText = document.getElementById('progress-text');
+        
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let answered = false;
+
+        function startQuiz() {
+            currentQuestionIndex = 0;
+            score = 0;
+            answered = false;
+            quizContent.style.display = 'block';
+            resultsScreen.classList.add('hidden');
+            nextButton.textContent = 'Siguiente';
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= quizQuestions.length) {
+                showResults();
+                return;
+            }
+            answered = false;
+            const question = quizQuestions[currentQuestionIndex];
+            questionText.textContent = question.question;
+            optionsContainer.innerHTML = '';
+            feedbackContainer.classList.remove('show', 'correct-feedback', 'incorrect-feedback');
+            
+            question.options.forEach(option => {
+                const button = document.createElement('button');
+                button.classList.add('option-button', 'w-full', 'p-4', 'rounded-lg', 'text-left');
+                button.textContent = option;
+                button.onclick = () => selectOption(button, option, question.correctAnswer, question.feedback);
+                optionsContainer.appendChild(button);
+            });
+
+            progressText.textContent = `Pregunta ${currentQuestionIndex + 1} de ${quizQuestions.length}`;
+            nextButton.disabled = true;
+        }
+
+        function selectOption(button, selectedOption, correctAnswer, feedback) {
+            if (answered) return;
+            answered = true;
+            nextButton.disabled = false;
+
+            const buttons = optionsContainer.querySelectorAll('.option-button');
+            buttons.forEach(btn => btn.classList.add('disabled'));
+
+            feedbackContainer.classList.add('show');
+            if (selectedOption === correctAnswer) {
+                button.classList.add('correct');
+                feedbackContainer.classList.add('correct-feedback');
+                feedbackContainer.innerHTML = `<i class="fas fa-check-circle mr-2"></i> ¡Correcto! ${feedback}`;
+                score++;
+            } else {
+                button.classList.add('incorrect');
+                feedbackContainer.classList.add('incorrect-feedback');
+                feedbackContainer.innerHTML = `<i class="fas fa-times-circle mr-2"></i> Incorrecto. La respuesta correcta es <strong>${correctAnswer}</strong>. ${feedback}`;
+                buttons.forEach(btn => {
+                    if (btn.textContent === correctAnswer) {
+                        btn.classList.add('correct');
+                    }
+                });
+            }
+            if (currentQuestionIndex === quizQuestions.length - 1) {
+                nextButton.textContent = 'Ver Resultados';
+            }
+        }
+        
+        function showResults() {
+            quizContent.style.display = 'none';
+            resultsScreen.classList.remove('hidden');
+            finalScoreText.textContent = `Tu puntuación final es ${score} de ${quizQuestions.length}.`;
+        }
+
+        nextButton.addEventListener('click', () => {
+            currentQuestionIndex++;
+            loadQuestion();
+        });
+        
+        restartButton.addEventListener('click', startQuiz);
+
+        // --- INITIALIZATION ---
+        const initialHash = window.location.hash.replace('#', '');
+        const validInitialTargets = ['introduccion', 'explorar', 'glosario', 'quiz'];
+        if (initialHash && validInitialTargets.includes(initialHash)) {
+            setActiveSection(initialHash);
+        } else {
+            setActiveSection('introduccion');
+        }
+        startQuiz(); // Initialize the quiz
+    });
+    </script>
+</body>
+</html>
